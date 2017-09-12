@@ -13,7 +13,7 @@ CHUNKS = int(SIZE_Y / 5)
 
 def parallel_draw(arr, work_queue):
     while True:
-        y_offset, count, x_start, x_end, y_start = work_queue.get(block = True)
+        y_offset, count, x_start, x_end, y_start, iterations = work_queue.get(block = True)
         
         y_end = y_start - (x_end - x_start) / AR
         
@@ -24,7 +24,7 @@ def parallel_draw(arr, work_queue):
             for x in range(SIZE_X):
                 c = x_start + x * x_dist / SIZE_X + 1j * (y_start - y * y_dist / SIZE_Y)
                 result = c
-                for i in range(ITERATIONS):
+                for i in range(iterations):
                     nextnum = result * result + c
                     real = result.real
                     imag = result.imag
@@ -32,14 +32,14 @@ def parallel_draw(arr, work_queue):
                         arr[x + y*SIZE_X] = 0
                         break
                     if real * real + imag * imag > 4:
-                        arr[x + y*SIZE_X] = int(i * 255 / ITERATIONS) * 256
+                        arr[x + y*SIZE_X] = int(i * 255 / iterations) * 256
                         break
                     else:
                         result = nextnum
                 else:
                     arr[x + y*SIZE_X] = 0
 
-def populate_queue(x_start, x_end, y_start, work_queue):
+def populate_queue(x_start, x_end, y_start, iterations, work_queue):
     chunk_size = int(SIZE_Y / CHUNKS)
     
     while True:
@@ -49,14 +49,13 @@ def populate_queue(x_start, x_end, y_start, work_queue):
             break
 
     for i in range(CHUNKS):
-        if i < CHUNKS - 1:
-            work_queue.put((i * chunk_size, chunk_size, x_start, x_end, y_start))
-        else: # Make sure last block fills the rest of the screen
-            work_queue.put((i * chunk_size, SIZE_Y - i * chunk_size, x_start, x_end, y_start))
+        count = chunk_size if i < CHUNKS - 1 else SIZE_Y - i * chunk_size # make sure last chunk fills rest of the screen
+        work_queue.put((i * chunk_size, count, x_start, x_end, y_start, iterations))
                         
 def start():
     pygame.init()
     screen = pygame.display.set_mode((SIZE_X, SIZE_Y))
+    myfont = pygame.font.SysFont("System", 24)
     
     values = Array('i', [0 for _ in range(SIZE_X * SIZE_Y)], lock=False)
     work_queue = Queue()
@@ -64,8 +63,9 @@ def start():
     x_start = -2.0
     x_end = 0.75
     y_start = 0.773
+    iterations = ITERATIONS
 
-    populate_queue(x_start, x_end, y_start, work_queue)
+    populate_queue(x_start, x_end, y_start, iterations, work_queue)
     
     for _ in range(THREADS):
         Process(target=parallel_draw, args=(values, work_queue), daemon=True).start()
@@ -74,11 +74,14 @@ def start():
     while not done:
         value_copy = [[values[x + y*SIZE_X] for y in range(SIZE_Y)] for x in range(SIZE_X)]
         pygame.surfarray.blit_array(screen, np.array(value_copy))
+        textsurface = myfont.render("Iterations: " + repr(iterations), True, (160, 0, 0))
+        screen.blit(textsurface, (5, 5))
         pygame.display.flip()
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
+                
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_x, mouse_y = pygame.mouse.get_pos()
                 pixel_width = (x_end - x_start) / SIZE_X
@@ -93,9 +96,23 @@ def start():
                 x_end += x_offset * pixel_width - zoom_x
                 y_start -= y_offset * pixel_width + zoom_y
                        
-                populate_queue(x_start, x_end, y_start, work_queue)
+                populate_queue(x_start, x_end, y_start, iterations, work_queue)
+                
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_KP_PLUS:
+                    iterations = int(iterations * 1.25)
+                    populate_queue(x_start, x_end, y_start, iterations, work_queue)
+                elif event.key == pygame.K_KP_MINUS:
+                    iterations = int(max(iterations * 0.8, 10))
+                    populate_queue(x_start, x_end, y_start, iterations, work_queue)
+                elif event.key == pygame.K_ESCAPE:
+                    x_start = -2.0
+                    x_end = 0.75
+                    y_start = 0.773
+                    iterations = ITERATIONS
+                    populate_queue(x_start, x_end, y_start, iterations, work_queue)
                    
-        pygame.time.wait(10)
+        pygame.time.wait(20)
         
 if __name__ == '__main__':
     start()
