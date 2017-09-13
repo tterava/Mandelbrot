@@ -75,6 +75,3 @@ PyInit_setcalc(void)
 {
     return PyModule_Create(&setcalc);
 }
-
-
-

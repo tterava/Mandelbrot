@@ -1,6 +1,6 @@
 import pygame
 import numpy as np
-from multiprocessing import Process, Array, Queue, cpu_count
+from multiprocessing import Process, Array, Queue, cpu_count, Value
 from queue import Empty
 from setcalc import iterate
 
@@ -8,16 +8,19 @@ THREADS = cpu_count()
 ITERATIONS = 512
 
 AR = 16 / 9
-SIZE_X = 80 * 16
+SIZE_X = 110 * 16
 SIZE_Y = int(SIZE_X / AR)
 CHUNKS = int(SIZE_Y / 10)
 
-def parallel_draw(arr, work_queue):
-    while True:
-        y_offset, count, x_start, x_end, y_start, iterations = work_queue.get(block = True)    
-        y_end = y_start - (x_end - x_start) / AR
+def parallel_draw(arr, work_queue, done):
+    while not done:
+        try:
+            y_offset, count, x_start, x_end, y_start, iterations = work_queue.get(block = True, timeout=1)    
+            y_end = y_start - (x_end - x_start) / AR
         
-        iterate(y_offset, count, x_start, x_end, y_start, y_end, iterations, SIZE_X, SIZE_Y, arr)
+            iterate(y_offset, count, x_start, x_end, y_start, y_end, iterations, SIZE_X, SIZE_Y, arr)
+        except Empty:
+            pass
                  
 def populate_queue(x_start, x_end, y_start, iterations, work_queue):
     chunk_size = int(SIZE_Y / CHUNKS)
@@ -39,6 +42,7 @@ def start():
     
     values = Array('i', [0 for _ in range(SIZE_X * SIZE_Y)], lock=False)
     work_queue = Queue()
+    done = Value("i", False, lock=False)
     
     x_start = -2.0
     x_end = 0.75
@@ -48,21 +52,24 @@ def start():
     populate_queue(x_start, x_end, y_start, iterations, work_queue)
     
     for _ in range(THREADS):
-        Process(target=parallel_draw, args=(values, work_queue), daemon=True).start()
+        Process(target=parallel_draw, args=(values, work_queue, done), daemon=True).start()
     
-    done = False
+    looper = 0
+    value_copy = []
     while not done:
-        value_copy = [[values[x + y*SIZE_X] for y in range(SIZE_Y)] for x in range(SIZE_X)]
-        pygame.surfarray.blit_array(screen, np.array(value_copy))
+        if looper == 0:
+            value_copy = np.array(values).reshape((SIZE_X, SIZE_Y), order='F')
+            
+        pygame.surfarray.blit_array(screen, value_copy)    
         textsurface = myfont.render("Iterations: " + repr(iterations), True, (160, 0, 0))
         screen.blit(textsurface, (5, 5))
         pygame.display.flip()
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                done = True
+                done.value = True
                 
-            if event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_x, mouse_y = pygame.mouse.get_pos()
                 pixel_width = (x_end - x_start) / SIZE_X
                 
@@ -78,7 +85,7 @@ def start():
                        
                 populate_queue(x_start, x_end, y_start, iterations, work_queue)
                 
-            if event.type == pygame.KEYDOWN:
+            elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_KP_PLUS:
                     iterations = int(iterations * 1.25)
                     populate_queue(x_start, x_end, y_start, iterations, work_queue)
@@ -93,6 +100,7 @@ def start():
                     populate_queue(x_start, x_end, y_start, iterations, work_queue)
                    
         pygame.time.wait(20)
+        looper = (looper + 1) % 10
         
 if __name__ == '__main__':
     start()
