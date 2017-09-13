@@ -2,6 +2,7 @@ import pygame
 import numpy as np
 from multiprocessing import Process, Array, Queue, cpu_count
 from queue import Empty
+from setcalc import iterate
 
 THREADS = cpu_count()
 ITERATIONS = 512
@@ -9,36 +10,15 @@ ITERATIONS = 512
 AR = 16 / 9
 SIZE_X = 80 * 16
 SIZE_Y = int(SIZE_X / AR)
-CHUNKS = int(SIZE_Y / 5)
+CHUNKS = int(SIZE_Y / 10)
 
 def parallel_draw(arr, work_queue):
     while True:
-        y_offset, count, x_start, x_end, y_start, iterations = work_queue.get(block = True)
-        
+        y_offset, count, x_start, x_end, y_start, iterations = work_queue.get(block = True)    
         y_end = y_start - (x_end - x_start) / AR
         
-        x_dist = x_end - x_start
-        y_dist = y_start - y_end
-    
-        for y in range(y_offset, y_offset + count):  
-            for x in range(SIZE_X):
-                c = x_start + x * x_dist / SIZE_X + 1j * (y_start - y * y_dist / SIZE_Y)
-                result = c
-                for i in range(iterations):
-                    nextnum = result * result + c
-                    real = result.real
-                    imag = result.imag
-                    if result == nextnum:
-                        arr[x + y*SIZE_X] = 0
-                        break
-                    if real * real + imag * imag > 4:
-                        arr[x + y*SIZE_X] = int(i * 255 / iterations) * 256
-                        break
-                    else:
-                        result = nextnum
-                else:
-                    arr[x + y*SIZE_X] = 0
-
+        iterate(y_offset, count, x_start, x_end, y_start, y_end, iterations, SIZE_X, SIZE_Y, arr)
+                 
 def populate_queue(x_start, x_end, y_start, iterations, work_queue):
     chunk_size = int(SIZE_Y / CHUNKS)
     
