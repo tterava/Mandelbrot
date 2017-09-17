@@ -2,9 +2,7 @@
 Mandelbrot set visualization with Python, C and CUDA.
 
 # Dependencies:
-CUDA Toolkit
-Pygame
-Numpy
+CUDA Toolkit, Pygame, Numpy
 
 # Usage:
 The included CUDA-extension must be compiled with nvcc-compiler.
