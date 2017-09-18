@@ -1,5 +1,6 @@
 # Mandelbrot
 Mandelbrot set visualization with Python, C and CUDA.
+
 ![Picture](https://i.imgur.com/8T1Pzki.png)
 
 # Dependencies:
