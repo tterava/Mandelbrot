@@ -14,4 +14,4 @@ which can be directly called from native Python code.
 Edit the Makefile and make sure your python path and GPU architecture are correct.
 List of compute levels for each Nvidia GPU: https://developer.nvidia.com/cuda-gpus
 
-Simple run "make" in terminal and the extension is compiled.
+Run "make" in terminal and the extension is compiled.
