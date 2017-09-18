@@ -9,7 +9,7 @@ THREADS = cpu_count()
 ITERATIONS = 500
 
 AR = 16 / 9
-SIZE_X = 30 * 16
+SIZE_X = 110 * 16
 SIZE_Y = int(SIZE_X / AR)
 CHUNKS = int(SIZE_Y / 10)
 
