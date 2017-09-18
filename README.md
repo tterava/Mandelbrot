@@ -1,6 +1,6 @@
 # Mandelbrot
 Mandelbrot set visualization with Python, C and CUDA.
-![alt text](http://url/to/img.png)
+![Picture](https://i.imgur.com/8T1Pzki.png)
 
 # Dependencies:
 CUDA Toolkit, Pygame, Numpy
