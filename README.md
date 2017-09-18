@@ -15,3 +15,6 @@ Edit the Makefile and make sure your python path and GPU architecture are correc
 List of compute levels for each Nvidia GPU: https://developer.nvidia.com/cuda-gpus
 
 Run "make" in terminal and the extension is compiled.
+Finally run "python3 mandelbrot.py" to launch the program.
+
+Click with your mouse where you want to zoom and use numpad +/- to set the iterations to a comfortable level.
