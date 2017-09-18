@@ -4,6 +4,7 @@ from multiprocessing import Process, Array, Queue, cpu_count
 from queue import Empty
 from itercalc import cudaiter, cpuiter
 from decimal import Decimal
+from time import time
 
 THREADS = cpu_count()
 ITERATIONS = 500
@@ -41,23 +42,41 @@ def populate_queue(x_start, x_end, y_start, y_end, iterations, work_queue):
         count = chunk_size if i < CHUNKS - 1 else SIZE_Y - i * chunk_size # make sure last chunk fills rest of the screen
         work_queue.put((i * chunk_size, count, x_start, x_end, y_start, y_end, iterations))
         
-def update_view(method, x_start, x_end, y_start, y_end, SIZE_X, SIZE_Y, iterations, work_queue, values):
+def update_view(method, x_start, x_end, y_start, y_end, SIZE_X, SIZE_Y, iterations, work_queue, values, benchmark):
     if method == 'CUDA':
-        Process(target = cudaiter, 
-                args=(x_start, x_end, y_start, y_end, iterations, SIZE_X, SIZE_Y, values),
-                daemon = True).start()
+        p = Process(target = cudaiter, 
+                    args=(x_start, x_end, y_start, y_end, iterations, SIZE_X, SIZE_Y, values),
+                    daemon = True)
+        
+        p.start()
+        if benchmark:
+            start = time()
+            p.join()
+            return time() - start
+                
     elif method == 'CPU_MT':
         populate_queue(x_start, x_end, y_start, y_end, iterations, work_queue)
+        processes = []
         for _ in range(THREADS):
-            Process(target=parallel_draw_cpu,
-                    args=(values, work_queue),
-                    daemon=True).start()
+            p = Process(target=parallel_draw_cpu,
+                        args=(values, work_queue),
+                        daemon=True)
+            processes.append(p)
+            p.start()
+        if benchmark:
+            start = time()
+            for process in processes:
+                process.join()
+            return time() - start
+            
+    return 0.0
                         
 def start():    
     pygame.init()
     screen = pygame.display.set_mode((SIZE_X, SIZE_Y))
     myfont = pygame.font.SysFont("DejaVu Sans Mono, Bold", 16, True)
     font_color = (255, 0, 0)
+    benchmark = False
     
     values = Array('i', [0 for _ in range(SIZE_X * SIZE_Y)], lock=False)
     work_queue = Queue()
@@ -70,7 +89,7 @@ def start():
     
     iterations = ITERATIONS
     
-    update_view(method, x_start, x_end, y_start, y_end, SIZE_X, SIZE_Y, iterations, work_queue, values)
+    benchmark_time = update_view(method, x_start, x_end, y_start, y_end, SIZE_X, SIZE_Y, iterations, work_queue, values, benchmark)
     
     text_level = 3
     update = False
@@ -86,6 +105,8 @@ def start():
         if text_level > 0:
             surfaces.append(myfont.render("Method: " + method, True, font_color))
             surfaces.append(myfont.render("Iterations: " + repr(iterations), True, font_color))
+            if benchmark:
+                surfaces.append(myfont.render("Draw time: " + '%.2f' % Decimal(benchmark_time) + "s", True, font_color))
         if text_level > 1:
             surfaces.append(myfont.render("X-Start: " + '%.6E' % Decimal(x_start), True, font_color))
             surfaces.append(myfont.render("X-End:   " + '%.6E' % Decimal(x_end), True, font_color))
@@ -98,7 +119,8 @@ def start():
             surfaces.append(myfont.render("Escape     : Exit program", True, font_color))
             surfaces.append(myfont.render("Numpad -/+ : Inc/dec iterations", True, font_color))
             surfaces.append(myfont.render("M          : Change compute method", True, font_color))
-            surfaces.append(myfont.render("H          : Change information level", True, font_color))  
+            surfaces.append(myfont.render("H          : Change information level", True, font_color))
+            surfaces.append(myfont.render("B          : Start/Stop benchmark", True, font_color))   
             
         for i in range(len(surfaces)):
             screen.blit(surfaces[i], (5, 2 + i*20))
@@ -151,9 +173,13 @@ def start():
                     update = True
                 elif event.key == pygame.K_h:
                     text_level = (text_level + 1) % 4
+                elif event.key == pygame.K_b:
+                    benchmark = not benchmark
+                    if benchmark:
+                        update = True
                     
         if update:
-            update_view(method, x_start, x_end, y_start, y_end, SIZE_X, SIZE_Y, iterations, work_queue, values)
+            benchmark_time = update_view(method, x_start, x_end, y_start, y_end, SIZE_X, SIZE_Y, iterations, work_queue, values, benchmark)
             update = False
                    
         pygame.time.wait(20)
