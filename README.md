@@ -25,7 +25,7 @@ Getting nvcc compile the Python extension isn't nearly as easy as on Linux. You 
 
 # Usage:
 Click with your mouse where you want to zoom and use numpad +/- to set the iterations to a comfortable level.
-At some point the precision of 64-bit floating point won't be enough to dive any deeper and you end up with mosaic pattern.
+At some point the precision of 64-bit floating point variables won't be enough to dive any deeper and you end up with mosaic pattern.
 
 # Performance:
 The speed of the iterations seems to correlate very well with the raw double precision processing power. If your GPU can process them faster than your CPU, then the CUDA implementation will be faster after increasing the iteration level to the point where memory transfers aren't a bottleneck anymore.
